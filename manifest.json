@@ -3,7 +3,8 @@
   "short_name": "鹿館日誌",
   "description": "紀錄撫摸鹿的點點滴滴，解鎖專屬飼育員稱號。",
   "id": "/deer-app/",
-  "start_url": "/index.html",
+  "start_url": "/deer-app/index.html",
+  "scope": "/deer-app/",
   "display": "standalone",
   "background_color": "#FDF6E3",
   "theme_color": "#8B5A2B",
@@ -12,15 +13,12 @@
     {
       "src": "192-icon.png",
       "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any"
+      "type": "image/png"
     },
     {
       "src": "512-icon.png",
       "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any"
+      "type": "image/png"
     }
   ]
 }
-
