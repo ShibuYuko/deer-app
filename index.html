@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>鹿館日誌-ver3.0</title>
+    <link rel="manifest" href="manifest.json">
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js');
+  }
+</script>
+    <style>
+        :root {
+            --primary: #8B5A2B;
+            --bg: #FDF6E3;
+            --highlight: #E6B89C;
+            --text: #4A4A4A;
+            --accent: #D4A373;
+            --success: #2ecc71;
+            --danger: #e74c3c;
+            --info: #3498db;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding-bottom: 50px; /* 給底部按鈕留空間 */
+        }
+
+        h1 { color: var(--primary); margin-bottom: 5px; font-size: 2rem; }
+
+        .caretaker-section {
+            display: flex;
+            align-items: center;
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 15px;
+        }
+
+        .caretaker-section input {
+            border: none;
+            border-bottom: 1px solid var(--primary);
+            background: transparent;
+            font-size: 1rem;
+            color: var(--primary);
+            width: 100px;
+            text-align: center;
+            margin-left: 5px;
+            font-weight: bold;
+        }
+
+        /* 按鈕群組 */
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .btn {
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.9rem;
+            cursor: pointer;
+            color: white;
+            box-shadow: 0 3px 0 rgba(0,0,0,0.2);
+            transition: 0.1s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .btn:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,0.2); }
+        
+        .btn-achieve { background-color: var(--accent); }
+        .btn-backup { background-color: var(--info); }
+        .btn-restore { background-color: var(--danger); }
+
+        /* 統計區塊 */
+        .stats-card {
+            background: white;
+            padding: 15px;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            width: 100%;
+            max-width: 350px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .stats-title { font-size: 0.9rem; color: #888; }
+        .stats-count { font-size: 1.5rem; font-weight: bold; color: var(--primary); margin: 5px 0; }
+        .stats-rank { font-size: 1.2rem; font-weight: bold; padding: 5px 15px; border-radius: 20px; color: white; display: inline-block; }
+
+        /* 日曆 */
+        .calendar-controls { display: flex; justify-content: space-between; width: 100%; max-width: 350px; margin-bottom: 10px; align-items: center; font-weight: bold; }
+        .calendar { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; width: 100%; max-width: 350px; }
+        .day-header { text-align: center; font-size: 0.8rem; color: #999; padding-bottom: 5px; }
+        .day-cell { aspect-ratio: 1; background: white; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.05); position: relative; font-size: 0.9rem; }
+        .day-cell.today { border: 2px solid var(--primary); }
+        .day-cell.has-data { background-color: var(--highlight); }
+        .day-badge { font-size: 0.7rem; color: var(--primary); font-weight: bold; margin-top: 2px; }
+
+        /* 彈窗 */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); justify-content: center; align-items: center; z-index: 100; backdrop-filter: blur(3px); }
+        .modal.active { display: flex; }
+        .modal-content { background: white; padding: 20px; border-radius: 20px; width: 85%; max-width: 350px; max-height: 80vh; overflow-y: auto; }
+        .modal-header { font-size: 1.3rem; margin-bottom: 15px; font-weight: bold; color: var(--primary); text-align: center; border-bottom: 2px solid var(--bg); padding-bottom: 10px; }
+
+        /* 成就清單 */
+        .achieve-item { display: flex; align-items: center; padding: 10px; margin-bottom: 8px; border-radius: 10px; background: #f9f9f9; border: 1px solid #eee; }
+        .achieve-item.unlocked { background: #fff9f0; border-color: var(--highlight); }
+        .achieve-icon { font-size: 1.2rem; margin-right: 10px; }
+        .achieve-info { flex: 1; }
+        .achieve-name { font-weight: bold; font-size: 0.95rem; }
+        .achieve-desc { font-size: 0.75rem; color: #888; }
+        .achieve-status { font-size: 0.8rem; font-weight: bold; }
+        .status-done { color: var(--success); }
+        .status-lock { color: #ccc; }
+
+        /* 自由心證 */
+        .manual-section { margin-top: 20px; border-top: 2px dashed #eee; padding-top: 15px; }
+        .manual-item { display: flex; align-items: center; margin-bottom: 10px; font-size: 0.9rem; cursor: pointer; }
+        .manual-item input { margin-right: 10px; width: 18px; height: 18px; cursor: pointer; }
+
+        textarea, input[type="number"] { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        .modal-actions { display: flex; gap: 10px; margin-top: 15px; }
+        .btn-flex { flex: 1; padding: 10px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; }
+        .btn-full { width: 100%; background: var(--primary); color: white; border: none; padding: 10px; border-radius: 10px; margin-top: 15px; font-weight: bold; cursor: pointer; }
+
+        /* 隱藏的檔案輸入框 */
+        #fileInput { display: none; }
+    </style>
+</head>
+<body>
+
+    <h1>鹿館日誌</h1>
+    <div class="caretaker-section">
+        飼育員：<input type="text" id="caretakerName" placeholder="輸入名稱">
+    </div>
+
+    <div class="btn-group">
+        <button class="btn btn-achieve" onclick="openAchieveModal()">🏆 稱號成就</button>
+        <button class="btn btn-backup" onclick="exportData()">💾 匯出備份</button>
+        <button class="btn btn-restore" onclick="triggerImport()">📂 匯入資料</button>
+    </div>
+    <input type="file" id="fileInput" accept=".json" onchange="importData(this)">
+
+    <div class="stats-card">
+        <div class="stats-title"><span id="statsMonthLabel"></span> 撫摸統計</div>
+        <div class="stats-count"><span id="monthlyTotal">0</span> 次</div>
+        <div class="stats-rank" id="monthlyRank">暫無評價</div>
+    </div>
+
+    <div class="calendar-controls">
+        <button onclick="changeMonth(-1)" style="background:none; border:none; color:var(--primary); font-size:1.2rem; cursor:pointer;">❮</button>
+        <span id="currentDateDisplay"></span>
+        <button onclick="changeMonth(1)" style="background:none; border:none; color:var(--primary); font-size:1.2rem; cursor:pointer;">❯</button>
+    </div>
+
+    <div class="calendar" id="calendarGrid"></div>
+
+    <div class="modal" id="entryModal">
+        <div class="modal-content">
+            <div class="modal-header" id="modalTitle">編輯紀錄</div>
+            <label>撫摸次數</label>
+            <input type="number" id="petCount" min="0">
+            <label style="display:block; margin-top:10px;">備註心得</label>
+            <textarea id="petNote" rows="3"></textarea>
+            <div class="modal-actions">
+                <button class="btn-flex" style="background:#eee;" onclick="closeModal('entryModal')">取消</button>
+                <button class="btn-flex" style="background:var(--primary); color:white;" onclick="saveData()">儲存</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="achieveModal">
+        <div class="modal-content">
+            <div class="modal-header">🏅 飼育員成就館</div>
+            <div id="autoAchievements"></div>
+            <div class="manual-section">
+                <div style="font-weight:bold; color:var(--primary); margin-bottom:10px;">🌟 自由心證成就 (勾選解鎖)</div>
+                <div id="manualAchievements"></div>
+            </div>
+            <button class="btn-full" onclick="closeModal('achieveModal')">關閉成就館</button>
+        </div>
+    </div>
+
+    <script>
+        let currentDate = new Date();
+        let logs = JSON.parse(localStorage.getItem('deerLogs')) || {};
+        let manualAchieves = JSON.parse(localStorage.getItem('manualAchieves')) || {};
+        
+        const autoAchieveList = [
+            { id: 1, name: "初心者飼育員", desc: "首次撫摸", req: 1, icon: "🦌" },
+            { id: 2, name: "飢渴之手", desc: "總共撫摸 15 次", req: 15, icon: "🖐️" },
+            { id: 3, name: "熟能生巧", desc: "總共撫摸 30 次", req: 30, icon: "✨" },
+            { id: 4, name: "菁英飼育員", desc: "總共撫摸 300 次", req: 300, icon: "🎖️" },
+            { id: 5, name: "老成飼育員", desc: "總共撫摸 600 次", req: 600, icon: "👴" },
+            { id: 6, name: "狂暴飼育員", desc: "總共撫摸 900 次", req: 900, icon: "🔥" },
+            { id: 7, name: "無盡", desc: "總共撫摸 1200 次", req: 1200, icon: "🌌" },
+            { id: 8, name: "初入神境", desc: "總共撫摸 1500 次", req: 1500, icon: "👼" },
+            { id: 9, name: "鹿神", desc: "總共撫摸 3000 次", req: 3000, icon: "🔱" },
+            { id: 10, name: "萬神之神", desc: "總共撫摸 6666 次", req: 6666, icon: "👑" }
+        ];
+
+        const manualAchieveList = [
+            "偽裝-被家人發現時使其偽裝成功",
+            "隱蔽-身邊有家人時成功摸3次以上",
+            "迅捷之風-30秒內撫摸完一次",
+            "堅如磐石-撫摸超過90分鐘",
+            "節能減碳-使用半張衛生紙",
+            "無下限-在家人面前撫摸5次以上",
+            "神的定力-成功30個月不碰鹿",
+            "高手過招-與好友互相撫摸對方的鹿",
+            "金手指-純想像且不使用任何媒材",
+            "傲慢-將家人趕出家門只為了摸鹿",
+            "完美遮蔽-公共場合成功摸6次以上",
+            "冥想-不使用手而摸到想像中的鹿"
+        ];
+
+        function init() {
+            document.getElementById('caretakerName').value = localStorage.getItem('caretakerName') || '';
+            document.getElementById('caretakerName').oninput = (e) => localStorage.setItem('caretakerName', e.target.value);
+            renderCalendar();
+            updateStats();
+        }
+
+        // --- 核心備份與還原功能 ---
+        
+        function exportData() {
+            const dataToSave = {
+                caretakerName: localStorage.getItem('caretakerName') || '',
+                deerLogs: logs,
+                manualAchieves: manualAchieves,
+                exportDate: new Date().toISOString()
+            };
+            
+            const dataStr = JSON.stringify(dataToSave, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            // 建立下載連結
+            const a = document.createElement('a');
+            const today = new Date().toISOString().slice(0,10).replace(/-/g,'');
+            a.href = url;
+            a.download = `deer_backup_${today}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function triggerImport() {
+            if(confirm("警告：匯入新檔案將會「覆蓋」目前的紀錄！\n\n確定要繼續嗎？")) {
+                document.getElementById('fileInput').click();
+            }
+        }
+
+        function importData(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    
+                    // 簡單的驗證
+                    if(data.deerLogs && data.manualAchieves) {
+                        localStorage.setItem('caretakerName', data.caretakerName || '');
+                        localStorage.setItem('deerLogs', JSON.stringify(data.deerLogs));
+                        localStorage.setItem('manualAchieves', JSON.stringify(data.manualAchieves));
+                        
+                        // 更新記憶體中的變數
+                        logs = data.deerLogs;
+                        manualAchieves = data.manualAchieves;
+                        document.getElementById('caretakerName').value = data.caretakerName || '';
+                        
+                        alert(`資料匯入成功！\n備份日期：${data.exportDate.slice(0,10)}`);
+                        init(); // 重新整理畫面
+                    } else {
+                        alert("錯誤：這似乎不是鹿館日誌的備份檔喔！");
+                    }
+                } catch (err) {
+                    alert("匯入失敗：檔案格式錯誤");
+                    console.error(err);
+                }
+                // 清空 input 讓下次選同個檔案也能觸發
+                input.value = ''; 
+            };
+            reader.readAsText(file);
+        }
+
+        // --- 其他原有功能 ---
+
+        function renderCalendar() {
+            const grid = document.getElementById('calendarGrid');
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+            document.getElementById('currentDateDisplay').innerText = `${year}年 ${month + 1}月`;
+            grid.innerHTML = '';
+            
+            ['日','一','二','三','四','五','六'].forEach(d => {
+                const h = document.createElement('div'); h.className='day-header'; h.innerText=d; grid.appendChild(h);
+            });
+
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            for(let i=0; i<firstDay; i++) grid.appendChild(document.createElement('div'));
+
+            for(let i=1; i<=daysInMonth; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'day-cell';
+                const key = `${year}-${month+1}-${i}`;
+                const isToday = year===new Date().getFullYear() && month===new Date().getMonth() && i===new Date().getDate();
+                if(isToday) cell.classList.add('today');
+                
+                if(logs[key]) {
+                    cell.classList.add('has-data');
+                    cell.innerHTML = `<span>${i}</span><div class="day-badge">x${logs[key].count}</div>`;
+                } else {
+                    cell.innerHTML = `<span>${i}</span>`;
+                }
+                cell.onclick = () => openModal('entryModal', key);
+                grid.appendChild(cell);
+            }
+        }
+
+        function updateStats() {
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth() + 1;
+            document.getElementById('statsMonthLabel').innerText = `${month}月`;
+            let monthlyTotal = 0;
+            Object.keys(logs).forEach(k => {
+                if(k.startsWith(`${year}-${month}-`)) monthlyTotal += parseInt(logs[k].count || 0);
+            });
+            document.getElementById('monthlyTotal').innerText = monthlyTotal;
+
+            const r = document.getElementById('monthlyRank');
+            if(monthlyTotal <= 7) { r.innerText="拉完了"; r.style.backgroundColor="#95a5a6"; }
+            else if(monthlyTotal <= 14) { r.innerText="NPC"; r.style.backgroundColor="#3498db"; }
+            else if(monthlyTotal <= 21) { r.innerText="人上人"; r.style.backgroundColor="#9b59b6"; }
+            else if(monthlyTotal <= 28) { r.innerText="頂級"; r.style.backgroundColor="#e67e22"; }
+            else { r.innerText="夯爆了"; r.style.backgroundColor="#e74c3c"; }
+        }
+
+        function openModal(id, key) {
+            if(id === 'entryModal') {
+                window.selectedKey = key;
+                document.getElementById('modalTitle').innerText = `${key} 日誌`;
+                document.getElementById('petCount').value = logs[key]?.count || '';
+                document.getElementById('petNote').value = logs[key]?.note || '';
+            }
+            document.getElementById(id).classList.add('active');
+        }
+
+        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+        function saveData() {
+            const c = document.getElementById('petCount').value;
+            const n = document.getElementById('petNote').value;
+            if(!c && !n) delete logs[window.selectedKey];
+            else logs[window.selectedKey] = { count: parseInt(c)||0, note: n };
+            localStorage.setItem('deerLogs', JSON.stringify(logs));
+            closeModal('entryModal');
+            renderCalendar();
+            updateStats();
+        }
+
+        function openAchieveModal() {
+            const total = Object.values(logs).reduce((s, a) => s + (a.count || 0), 0);
+            const autoDiv = document.getElementById('autoAchievements');
+            autoDiv.innerHTML = '';
+            
+            autoAchieveList.forEach(item => {
+                const unlocked = total >= item.req;
+                autoDiv.innerHTML += `
+                    <div class="achieve-item ${unlocked ? 'unlocked' : ''}">
+                        <div class="achieve-icon">${unlocked ? item.icon : '🔒'}</div>
+                        <div class="achieve-info">
+                            <div class="achieve-name">${item.name}</div>
+                            <div class="achieve-desc">${item.desc}</div>
+                        </div>
+                        <div class="achieve-status ${unlocked ? 'status-done' : 'status-lock'}">
+                            ${unlocked ? '已達成' : item.req - total + ' 距離'}
+                        </div>
+                    </div>`;
+            });
+
+            const manualDiv = document.getElementById('manualAchievements');
+            manualDiv.innerHTML = '';
+            manualAchieveList.forEach(item => {
+                const isChecked = manualAchieves[item] ? 'checked' : '';
+                manualDiv.innerHTML += `
+                    <label class="manual-item">
+                        <input type="checkbox" ${isChecked} onchange="toggleManual('${item}')">
+                        ${item}
+                    </label>`;
+            });
+            openModal('achieveModal');
+        }
+
+        function toggleManual(id) {
+            manualAchieves[id] = !manualAchieves[id];
+            localStorage.setItem('manualAchieves', JSON.stringify(manualAchieves));
+        }
+
+        function changeMonth(d) { currentDate.setMonth(currentDate.getMonth()+d); renderCalendar(); updateStats(); }
+
+        init();
+    </script>
+</body>
+</html>
